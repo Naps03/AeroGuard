@@ -5,7 +5,6 @@ import heroImg from './assets/hero.png'
 //import './App.css'
 
 
-// Le code que je t'ai donné remplace tout ce qui commence par function App()
 import React, { useState } from 'react';
 import { Wind, Thermometer, Droplets, Activity, Clock, AlertTriangle, CheckCircle, Timer, Plus, Trash2, Users, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -22,7 +21,7 @@ const data = [
 ];
 
 function App() {
-  // --- ÉTATS POUR L'OCCUPATION (Feature 5 corrigée) ---
+  // --- Anzeige der Raumbelegungsplan ---
   const [occupations, setOccupations] = useState([
     { id: 1, day: "Montag", start: "08:00", end: "12:00", label: "Vorlesung IT" },
     { id: 2, day: "Mittwoch", start: "14:00", end: "16:00", label: "Meeting" }
@@ -51,7 +50,7 @@ function App() {
     setOccupations(occupations.filter(o => o.id !== id));
   };
 
-  const currentCO2 = 850; 
+  const currentCO2 = 700; 
   const predictionMinutes = 25; 
   const isAlert = currentCO2 > 1000;
 
@@ -65,7 +64,7 @@ function App() {
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-white shadow-sm border rounded-full text-xs font-bold text-slate-600 uppercase">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          Live-Status
+          In echtzeit
         </div>
       </header>
 
@@ -78,7 +77,7 @@ function App() {
           <StatCard icon={<Activity />} color="text-green-600" bg="bg-green-50" title="IAQ Score" value="92" unit="/100" />
         </div>
 
-        {/* CONDITIONNELLE : ALERTE OU PRÉDICTION */}
+        {/* Wertbedingte Warnmeldung oder Vorhersage*/}
         {isAlert ? (
           <div className="mb-8 p-6 rounded-3xl border-4 border-red-500 bg-red-50 text-red-700 animate-pulse shadow-xl flex items-center gap-6">
             <AlertTriangle size={48} className="shrink-0" />
@@ -115,7 +114,7 @@ function App() {
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-8">
           <div className="flex items-center gap-2 mb-8">
             <Clock className="text-slate-400" size={24} />
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight italic uppercase">Luftqualität 24h Verlauf</h2>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight italic uppercase">24-stündiger Verlauf der Raumluftdaten</h2>
           </div>
           <div className="h-[400px] w-full text-xs font-bold">
             <ResponsiveContainer width="100%" height="100%">
