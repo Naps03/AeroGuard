@@ -1,6 +1,14 @@
 import sqlite3
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+# Daten aus dem Dashboard für den Belegungsplan
+class Occupation(BaseModel):
+    day: str
+    start_time: str
+    end_time: str
+    label: str
 
 app = FastAPI()
 
@@ -53,5 +61,40 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+
+@app.post("/api/occupations")
+def add_occupation(occ: Occupation):
+    conn = sqlite3.connect("aeroguard.db")
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO occupations (day, start_time, end_time, label) VALUES (?, ?, ?, ?)",
+        (occ.day, occ.start_time, occ.end_time, occ.label)
+    )
+    conn.commit()
+    conn.close()
+    return {"message": "Kurs erfolgreich hinzugefügt!"}
+
+@app.get("/api/occupations")
+def get_occupations():
+    conn = sqlite3.connect("aeroguard.db")
+    # row_factory permet de transformer les résultats en dictionnaires Python (plus facile pour le JSON)
+    conn.row_factory = sqlite3.Row 
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM occupations")
+    rows = cursor.fetchall()
+    
+    # On transforme les lignes de la DB en une liste de dictionnaires
+    occupations = [dict(row) for row in rows]
+    conn.close()
+    return occupations
+
+@app.delete("/api/occupations/{occ_id}")
+def delete_occupation(occ_id: int):
+    conn = sqlite3.connect("aeroguard.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM occupations WHERE id = ?", (occ_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Cours supprimé avec succès"}
 
 init_db()

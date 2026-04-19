@@ -24,10 +24,7 @@ function App() {
   });
 
   // Testwerte für den Belegungsplan
-  const [occupations, setOccupations] = useState([
-    { id: 1, day: "Montag", start: "08:00", end: "12:00", label: "Vorlesung IT" },
-    { id: 2, day: "Mittwoch", start: "14:00", end: "16:00", label: "Meeting" }
-  ]);
+  const [occupations, setOccupations] = useState([]);
   const [newDay, setNewDay] = useState("Montag");
   const [newStart, setNewStart] = useState("");
   const [newEnd, setNewEnd] = useState("");
@@ -35,33 +32,68 @@ function App() {
 
   // 2. API-Aufruf
   useEffect(() => {
-    const fetchSensors = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/sensor-test');
-        const data = await response.json();
-        setSensorData(data); // Aktualisierung der empfangenenSensordaten
-      } catch (error) {
-        console.error("Verbindungsfehler mit dem Python-Server:", error);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      // 1. Sensordaten
+      const resSensors = await fetch('http://127.0.0.1:8000/api/sensor-test');
+      const dataS = await resSensors.json();
+      setSensorData(dataS);
 
-    fetchSensors();
-    const interval = setInterval(fetchSensors, 5000); // 5-sekundlicher Intervall für Echtzeit-Updates
-    return () => clearInterval(interval);
-  }, []);
-
-  const addOccupation = () => {
-    if (newStart && newEnd && newLabel) {
-      setOccupations([...occupations, { 
-        id: Date.now(), day: newDay, start: newStart, end: newEnd, label: newLabel 
-      }]);
-      setNewStart(""); setNewEnd(""); setNewLabel("");
+      // 2. Belegungsdaten
+      const resOcc = await fetch('http://127.0.0.1:8000/api/occupations');
+      const dataO = await resOcc.json();
+      console.log("Données reçues de la DB:", dataO);
+      setOccupations(dataO); 
+    } catch (error) {
+      console.error("Erreur de fetch:", error);
     }
   };
 
-  const deleteOccupation = (id) => {
-    setOccupations(occupations.filter(o => o.id !== id));
-  };
+  fetchData();
+}, []);
+
+
+  const addOccupation = async () => {
+  if (newStart && newEnd && newLabel) {
+    const newEntry = { 
+      day: newDay, 
+      start_time: newStart, 
+      end_time: newEnd, 
+      label: newLabel 
+    };
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/occupations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEntry)
+      });
+
+      if (response.ok) {
+        setOccupations([...occupations, { ...newEntry, id: Date.now() }]);
+        setNewStart(""); setNewEnd(""); setNewLabel("");
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement:", error);
+    }
+  }
+};
+
+  const deleteOccupation = async (id) => {
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/api/occupations/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (response.ok) {
+      setOccupations(occupations.filter(o => o.id !== id));
+    } else {
+      console.error("Erreur lors de la suppression sur le serveur");
+    }
+  } catch (error) {
+    console.error("Erreur réseau :", error);
+  }
+};
 
   const isAlert = sensorData.co2 > 1000;
   const predictionMinutes = 25; 
@@ -165,7 +197,7 @@ function App() {
                   <div>
                     <p className="text-xs font-bold text-blue-600 uppercase">{occ.day}</p>
                     <p className="font-black text-slate-800">{occ.label}</p>
-                    <p className="text-xs text-slate-400 font-bold">{occ.start} - {occ.end} Uhr</p>
+                    <p className="text-xs text-slate-400 font-bold">{occ.start_time} - {occ.end_time} Uhr</p>
                   </div>
                   <button onClick={() => deleteOccupation(occ.id)} className="text-slate-300 hover:text-red-500 transition-colors">
                     <Trash2 size={20} />
