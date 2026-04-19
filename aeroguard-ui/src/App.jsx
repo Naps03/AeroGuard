@@ -1,15 +1,9 @@
-
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-//import './App.css'
-
-
-import React, { useState } from 'react';
-import { Wind, Thermometer, Droplets, Activity, Clock, AlertTriangle, CheckCircle, Timer, Plus, Trash2, Users, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wind, Thermometer, Droplets, Activity, Clock, AlertTriangle, CheckCircle, Timer, Trash2, Users, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-const data = [
+// Graphdaten
+const historyData = [
   { time: '00:00', co2: 450, temp: 21, hum: 40, iaq: 95 },
   { time: '04:00', co2: 440, temp: 20, hum: 42, iaq: 98 },
   { time: '08:00', co2: 600, temp: 21, hum: 45, iaq: 85 },
@@ -21,7 +15,15 @@ const data = [
 ];
 
 function App() {
-  // --- Anzeige der Raumbelegungsplan ---
+  // Standardwerte für die Sensoren, bevor die API-Daten geladen werden
+  const [sensorData, setSensorData] = useState({
+    co2: 0,
+    temperature: 0,
+    humidity: 0,
+    iaq_score: 0
+  });
+
+  // Testwerte für den Belegungsplan
   const [occupations, setOccupations] = useState([
     { id: 1, day: "Montag", start: "08:00", end: "12:00", label: "Vorlesung IT" },
     { id: 2, day: "Mittwoch", start: "14:00", end: "16:00", label: "Meeting" }
@@ -31,18 +33,29 @@ function App() {
   const [newEnd, setNewEnd] = useState("");
   const [newLabel, setNewLabel] = useState("");
 
+  // 2. API-Aufruf
+  useEffect(() => {
+    const fetchSensors = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:8000/api/sensor-test');
+        const data = await response.json();
+        setSensorData(data); // Aktualisierung der empfangenenSensordaten
+      } catch (error) {
+        console.error("Verbindungsfehler mit dem Python-Server:", error);
+      }
+    };
+
+    fetchSensors();
+    const interval = setInterval(fetchSensors, 5000); // 5-sekundlicher Intervall für Echtzeit-Updates
+    return () => clearInterval(interval);
+  }, []);
+
   const addOccupation = () => {
     if (newStart && newEnd && newLabel) {
       setOccupations([...occupations, { 
-        id: Date.now(), 
-        day: newDay, 
-        start: newStart, 
-        end: newEnd, 
-        label: newLabel 
+        id: Date.now(), day: newDay, start: newStart, end: newEnd, label: newLabel 
       }]);
-      setNewStart("");
-      setNewEnd("");
-      setNewLabel("");
+      setNewStart(""); setNewEnd(""); setNewLabel("");
     }
   };
 
@@ -50,13 +63,11 @@ function App() {
     setOccupations(occupations.filter(o => o.id !== id));
   };
 
-  const currentCO2 = 700; 
+  const isAlert = sensorData.co2 > 1000;
   const predictionMinutes = 25; 
-  const isAlert = currentCO2 > 1000;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
-      {/* HEADER */}
       <header className="max-w-6xl mx-auto mb-8 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-black tracking-tighter text-blue-600">AeroGuard</h1>
@@ -64,26 +75,26 @@ function App() {
         </div>
         <div className="flex items-center gap-2 px-4 py-2 bg-white shadow-sm border rounded-full text-xs font-bold text-slate-600 uppercase">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          In echtzeit
+          In Echtzeit (Backend API)
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto">
-        {/* STATS */}
+        {/* StatCards zum Anzeigen der Sensordaten*/}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard icon={<Wind />} color="text-red-600" bg="bg-red-50" title="CO2" value={currentCO2} unit="ppm" />
-          <StatCard icon={<Thermometer />} color="text-blue-600" bg="bg-blue-50" title="Temperatur" value="22.5" unit="°C" />
-          <StatCard icon={<Droplets />} color="text-yellow-600" bg="bg-yellow-50" title="Feuchtigkeit" value="45" unit="%" />
-          <StatCard icon={<Activity />} color="text-green-600" bg="bg-green-50" title="IAQ Score" value="92" unit="/100" />
+          <StatCard icon={<Wind />} color="text-red-600" bg="bg-red-50" title="CO2" value={sensorData.co2} unit="ppm" />
+          <StatCard icon={<Thermometer />} color="text-blue-600" bg="bg-blue-50" title="Temperatur" value={sensorData.temperature} unit="°C" />
+          <StatCard icon={<Droplets />} color="text-yellow-600" bg="bg-yellow-50" title="Feuchtigkeit" value={sensorData.humidity} unit="%" />
+          <StatCard icon={<Activity />} color="text-green-600" bg="bg-green-50" title="IAQ Score" value={sensorData.iaq_score} unit="/100" />
         </div>
 
-        {/* Wertbedingte Warnmeldung oder Vorhersage*/}
+        {/* Wertbedingte Warnmeldung */}
         {isAlert ? (
           <div className="mb-8 p-6 rounded-3xl border-4 border-red-500 bg-red-50 text-red-700 animate-pulse shadow-xl flex items-center gap-6">
             <AlertTriangle size={48} className="shrink-0" />
             <div>
               <h2 className="text-2xl font-black uppercase">Lüftung erforderlich!</h2>
-              <p className="text-lg font-bold">Die Luftqualität ist aktuell schlecht.</p>
+              <p className="text-lg font-bold">Der CO2-Wert ({sensorData.co2} ppm) ist zu hoch.</p>
             </div>
           </div>
         ) : (
@@ -95,30 +106,26 @@ function App() {
                 <p className="text-sm opacity-80 font-medium text-green-600">Aktuell ist keine Lüftung notwendig.</p>
               </div>
             </div>
-
+            
             <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl text-white shadow-lg flex items-center gap-6">
-              <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm">
-                <Timer size={32} />
-              </div>
+              <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm"><Timer size={32} /></div>
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider opacity-80">KI-Prognose (Basierend auf Belegungsplan)</h3>
-                <p className="text-2xl font-black">
-                  Lüftung voraussichtlich in: <span className="bg-white text-blue-700 px-4 py-1 rounded-xl ml-2 shadow-inner">{predictionMinutes} Min.</span>
-                </p>
+                <h3 className="text-sm font-bold uppercase tracking-wider opacity-80">KI-Prognose</h3>
+                <p className="text-2xl font-black">Lüftung voraussichtlich in: <span className="bg-white text-blue-700 px-4 py-1 rounded-xl ml-2 shadow-inner">{predictionMinutes} Min.</span></p>
               </div>
             </div>
           </div>
         )}
 
-        {/* GRAPHIQUE */}
+        {/* Graph */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-8">
           <div className="flex items-center gap-2 mb-8">
             <Clock className="text-slate-400" size={24} />
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight italic uppercase">24-stündiger Verlauf der Raumluftdaten</h2>
+            <h2 className="text-2xl font-black text-slate-800 italic uppercase">Historischer Verlauf</h2>
           </div>
           <div className="h-[400px] w-full text-xs font-bold">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
+              <LineChart data={historyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="time" axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} />
@@ -133,42 +140,25 @@ function App() {
           </div>
         </div>
 
-        {/* FEATURE 5: BELEGUNGSPLAN (Emploi du temps) */}
+        {/* Belegungsplan */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-            <h2 className="text-2xl font-black mb-6 flex items-center gap-3">
-              <Users className="text-blue-600" /> Belegungsplan hinzufügen
-            </h2>
+            <h2 className="text-2xl font-black mb-6 flex items-center gap-3"><Users className="text-blue-600" /> Belegungsplan</h2>
             <div className="flex flex-col gap-4">
-              <select 
-                value={newDay}
-                onChange={(e) => setNewDay(e.target.value)}
-                className="p-4 bg-slate-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option>Montag</option><option>Dienstag</option><option>Mittwoch</option>
-                <option>Donnerstag</option><option>Freitag</option><option>Samstag</option>
+              <select value={newDay} onChange={(e) => setNewDay(e.target.value)} className="p-4 bg-slate-50 rounded-2xl font-bold border-none focus:ring-2 focus:ring-blue-500">
+                <option>Montag</option><option>Dienstag</option><option>Mittwoch</option><option>Donnerstag</option><option>Freitag</option><option>Samstag</option>
               </select>
               <div className="grid grid-cols-2 gap-4">
                 <input type="time" value={newStart} onChange={(e) => setNewStart(e.target.value)} className="p-4 bg-slate-50 rounded-2xl font-bold border-none" />
                 <input type="time" value={newEnd} onChange={(e) => setNewEnd(e.target.value)} className="p-4 bg-slate-50 rounded-2xl font-bold border-none" />
               </div>
-              <input 
-                type="text" 
-                placeholder="Veranstaltungsname (ex: IT-Kurs)" 
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                className="p-4 bg-slate-50 rounded-2xl font-bold border-none" 
-              />
-              <button onClick={addOccupation} className="bg-blue-600 text-white p-4 rounded-2xl font-black hover:bg-blue-700 transition-all shadow-lg">
-                SPEICHERN
-              </button>
+              <input type="text" placeholder="Kursname" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} className="p-4 bg-slate-50 rounded-2xl font-bold border-none" />
+              <button onClick={addOccupation} className="bg-blue-600 text-white p-4 rounded-2xl font-black hover:bg-blue-700 shadow-lg transition-all">SPEICHERN</button>
             </div>
           </div>
 
           <div className="bg-slate-100/50 p-8 rounded-3xl border border-dashed border-slate-300">
-            <h2 className="text-xl font-bold mb-6 text-slate-500 uppercase flex items-center gap-2">
-              <Calendar size={20}/> Wöchentliche Belegung
-            </h2>
+            <h2 className="text-xl font-bold mb-6 text-slate-500 uppercase flex items-center gap-2"><Calendar size={20}/> Aktuelle Belegung</h2>
             <div className="space-y-3 h-[300px] overflow-y-auto pr-2">
               {occupations.map(occ => (
                 <div key={occ.id} className="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border-l-4 border-blue-500">
@@ -190,9 +180,10 @@ function App() {
   );
 }
 
+// StatCard Konfiguration
 function StatCard({ icon, color, bg, title, value, unit }) {
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 transition-all">
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 transition-all hover:shadow-md">
       <div className="flex items-center gap-4 mb-4">
         <div className={`p-3 ${bg} ${color} rounded-2xl`}>{React.cloneElement(icon, { size: 24 })}</div>
         <h3 className="font-bold text-slate-400 text-xs uppercase tracking-widest">{title}</h3>
