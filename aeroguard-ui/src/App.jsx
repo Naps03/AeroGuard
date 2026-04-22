@@ -20,7 +20,8 @@ function App() {
     co2: 0,
     temperature: 0,
     humidity: 0,
-    iaq_score: 0
+    iaq_score: 0,
+    prediction_minutes: null
   });
 
   // Testwerte für den Belegungsplan
@@ -50,6 +51,8 @@ function App() {
   };
 
   fetchData();
+  const interval = setInterval(fetchData, 5000);
+  return () => clearInterval(interval);
 }, []);
 
 
@@ -143,7 +146,17 @@ function App() {
               <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm"><Timer size={32} /></div>
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider opacity-80">KI-Prognose</h3>
-                <p className="text-2xl font-black">Lüftung voraussichtlich in: <span className="bg-white text-blue-700 px-4 py-1 rounded-xl ml-2 shadow-inner">{predictionMinutes} Min.</span></p>
+                <p className="text-2xl font-black">
+                  {sensorData.prediction_minutes === null ? (
+                    "Analyse läuft..."
+                  ) : sensorData.prediction_minutes === -1 ? (
+                    "Luft stabil"
+                  ) : sensorData.prediction_minutes === 0 ? (
+                    "Sofort lüften!"
+                  ) : (
+                  <>Lüftung voraussichtlich in: <span className="bg-white text-blue-700 px-4 py-1 rounded-xl ml-2 shadow-inner">{sensorData.prediction_minutes} Min.</span></>
+                  )}
+                </p>
               </div>
             </div>
           </div>

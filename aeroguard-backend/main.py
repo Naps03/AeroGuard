@@ -1,7 +1,12 @@
 import sqlite3
+import random
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from datetime import datetime, timedelta
+
+#Letzte 10 CO2-Messungen
+co2_history = [] 
 
 # Daten aus dem Dashboard für den Belegungsplan
 class Occupation(BaseModel):
@@ -26,12 +31,16 @@ def read_root():
 
 @app.get("/api/sensor-test")
 def get_sensor_test():
-    # Simualtion der Sensordaten zum Test
+    current_co2 = random.randint(800, 950) 
+    
+    prediction = calculate_co2_trend(current_co2)
+    
     return {
-        "co2": 1100,
-        "temperature": 30,
-        "humidity": 48,
-        "iaq_score": 90
+        "co2": current_co2,
+        "temperature": 22.5,
+        "humidity": 45,
+        "iaq_score": 85,
+        "prediction_minutes": prediction
     }
 
 # Initialiserung der Datenbank
@@ -96,5 +105,45 @@ def delete_occupation(occ_id: int):
     conn.commit()
     conn.close()
     return {"message": "Cours supprimé avec succès"}
+
+def calculate_co2_trend(current_co2):
+    global co2_history
+    # Aktuelle Messung mit Uhrzeit in die Historie aufnehmen
+    now = datetime.now()
+    co2_history.append({"time": now, "value": current_co2})
+    
+    if len(co2_history) > 10:
+        co2_history.pop(0)
+    
+    if len(co2_history) < 2:
+        return None 
+
+    start_vals = [d["value"] for d in co2_history[:3]]
+    avg_start = sum(start_vals) / len(start_vals)
+    time_start = co2_history[1]["time"] # Temps médian du premier groupe
+
+    # 2. Moyenne de la fin (les 3 dernières)
+    end_vals = [d["value"] for d in co2_history[-3:]]
+    avg_end = sum(end_vals) / len(end_vals)
+    time_end = co2_history[-2]["time"]
+
+    time_diff = (time_end - time_start).total_seconds() / 60
+
+    co2_diff = avg_end - avg_start
+
+    if time_diff == 0 or co2_diff <= 0:
+        return -1
+    
+    pente = co2_diff / time_diff 
+    
+    remaining_ppm = 1000 - current_co2
+    if remaining_ppm <= 0:
+        return 0
+        
+    minutes_to_alert = (remaining_ppm - avg_start) / pente
+    if remaining_ppm > 0 and minutes_to_alert < 1:
+        return 1 
+    return round(minutes_to_alert)
+
 
 init_db()
