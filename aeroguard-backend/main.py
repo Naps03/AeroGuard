@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime, timedelta
+from iaq_score import calculate_iaq_index
 
 #Letzte 10 CO2-Messungen
 co2_history = [] 
@@ -31,15 +32,17 @@ def read_root():
 
 @app.get("/api/sensor-test")
 def get_sensor_test():
-    current_co2 = random.randint(800, 950) 
+    current_co2 = random.randint(1000, 2000) 
     
     prediction = calculate_co2_trend(current_co2)
+
+    iaq = calculate_iaq_index(current_co2, 22.5, 45)
     
     return {
         "co2": current_co2,
         "temperature": 22.5,
         "humidity": 45,
-        "iaq_score": 85,
+        "iaq_score": round(iaq["score_global"], 1),
         "prediction_minutes": prediction
     }
 
@@ -86,13 +89,11 @@ def add_occupation(occ: Occupation):
 @app.get("/api/occupations")
 def get_occupations():
     conn = sqlite3.connect("aeroguard.db")
-    # row_factory permet de transformer les résultats en dictionnaires Python (plus facile pour le JSON)
     conn.row_factory = sqlite3.Row 
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM occupations")
     rows = cursor.fetchall()
     
-    # On transforme les lignes de la DB en une liste de dictionnaires
     occupations = [dict(row) for row in rows]
     conn.close()
     return occupations
@@ -120,9 +121,8 @@ def calculate_co2_trend(current_co2):
 
     start_vals = [d["value"] for d in co2_history[:3]]
     avg_start = sum(start_vals) / len(start_vals)
-    time_start = co2_history[1]["time"] # Temps médian du premier groupe
+    time_start = co2_history[1]["time"]
 
-    # 2. Moyenne de la fin (les 3 dernières)
     end_vals = [d["value"] for d in co2_history[-3:]]
     avg_end = sum(end_vals) / len(end_vals)
     time_end = co2_history[-2]["time"]
