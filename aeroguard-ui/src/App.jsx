@@ -2,18 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Wind, Thermometer, Droplets, Activity, Clock, AlertTriangle, CheckCircle, Timer, Trash2, Users, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-// Graphdaten
-const historyData = [
-  { time: '00:00', co2: 450, temp: 21, hum: 40, iaq: 95 },
-  { time: '04:00', co2: 440, temp: 20, hum: 42, iaq: 98 },
-  { time: '08:00', co2: 600, temp: 21, hum: 45, iaq: 85 },
-  { time: '10:00', co2: 950, temp: 23, hum: 50, iaq: 65 },
-  { time: '12:00', co2: 1200, temp: 24, hum: 55, iaq: 45 },
-  { time: '14:00', co2: 800, temp: 22, hum: 48, iaq: 75 },
-  { time: '18:00', co2: 500, temp: 21, hum: 43, iaq: 90 },
-  { time: '22:00', co2: 460, temp: 20, hum: 41, iaq: 94 },
-];
-
 function App() {
   // Standardwerte für die Sensoren, bevor die API-Daten geladen werden
   const [sensorData, setSensorData] = useState({
@@ -23,6 +11,8 @@ function App() {
     iaq_score: 0,
     prediction_minutes: null
   });
+  
+  const [historyData, setHistoryData] = useState([]);
 
   // Testwerte für den Belegungsplan
   const [occupations, setOccupations] = useState([]);
@@ -45,6 +35,10 @@ function App() {
       const dataO = await resOcc.json();
       console.log("Données reçues de la DB:", dataO);
       setOccupations(dataO); 
+
+      const resHistory = await fetch('http://127.0.0.1:8000/api/history');
+      const dataH = await resHistory.json();
+      setHistoryData(dataH);
     } catch (error) {
       console.error("Erreur de fetch:", error);
     }

@@ -17,7 +17,7 @@ class Occupation(BaseModel):
     label: str
 
 app = FastAPI()
-
+call_counter = 0
 # Erstellung der Kommunikation zwischen FrontEnd & BackEnd
 app.add_middleware(
     CORSMiddleware,
@@ -32,19 +32,65 @@ def read_root():
 
 @app.get("/api/sensor-test")
 def get_sensor_test():
-    current_co2 = random.randint(1000, 2000) 
+    global call_counter
+    current_co2 = random.randint(300, 700) 
+    current_temp = random.randint(18, 26)
+    current_hum = random.randint(30, 60)
     
     prediction = calculate_co2_trend(current_co2)
 
-    iaq = calculate_iaq_index(current_co2, 22.5, 45)
+    iaq = calculate_iaq_index(current_co2, current_temp, current_hum)
     
+    call_counter += 1
+    if call_counter >= 2:
+        save_to_db(current_co2, current_temp, current_hum, int(iaq["score_global"]))
+        call_counter = 0
     return {
         "co2": current_co2,
-        "temperature": 22.5,
-        "humidity": 45,
+        "temperature": current_temp,
+        "humidity": current_hum,
         "iaq_score": round(iaq["score_global"], 1),
         "prediction_minutes": prediction
     }
+
+@app.get("/api/history")
+def get_history():
+    try:
+        conn = sqlite3.connect("aeroguard.db")
+        # On utilise Row pour pouvoir accéder aux colonnes par leur nom
+        conn.row_factory = sqlite3.Row 
+        cursor = conn.cursor()
+        
+        # On récupère les 12 dernières mesures, triées par ID descendant
+        cursor.execute('''
+            SELECT timestamp, co2, temperature, humidity, iaq_score 
+            FROM measurements 
+            ORDER BY id DESC 
+            LIMIT 12
+        ''')
+        rows = cursor.fetchall()
+        conn.close()
+
+        history = []
+        for row in rows:
+            # On formate l'heure pour qu'elle soit jolie sur le graphique (HH:MM:SS)
+            # row['timestamp'] ressemble à "2023-10-27 14:05:01"
+            full_time = row['timestamp'].split(" ")[1] 
+            
+            history.append({
+                "time": full_time,
+                "co2": row['co2'],
+                "temp": row['temperature'],
+                "hum": row['humidity'],
+                "iaq": row['iaq_score']
+            })
+
+        # On inverse la liste pour que le point le plus récent soit à droite du graphique
+        return history[::-1]
+
+    except Exception as e:
+        print(f"❌ Erreur lecture historique: {e}")
+        return []
 
 # Initialiserung der Datenbank
 def init_db():
@@ -71,6 +117,16 @@ def init_db():
             label TEXT
         )
     ''')
+    conn.commit()
+    conn.close()
+
+def save_to_db(co2, temp, hum, iaq):
+    conn = sqlite3.connect("aeroguard.db")
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO measurements (co2, temperature, humidity, iaq_score) VALUES (?, ?, ?, ?)",
+        (co2, temp, hum, iaq)
+    )
     conn.commit()
     conn.close()
 
