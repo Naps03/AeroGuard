@@ -1,5 +1,7 @@
 import sqlite3
-import random
+import json 
+import threading 
+import paho.mqtt.client as mqtt
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -8,6 +10,10 @@ from iaq_score import calculate_iaq_index
 
 #Letzte 10 CO2-Messungen
 co2_history = [] 
+
+current_co2 = 400
+current_temp = 22.0
+current_hum = 45.0
 
 # Daten aus dem Dashboard für den Belegungsplan
 class Occupation(BaseModel):
@@ -26,6 +32,68 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def on_connect(client, userdata, flags, rc):
+    """ Cette fonction se déclenche dès que le backend se connecte à Mosquitto """
+    if rc == 0:
+        print("✅ Backend connecté avec succès au Broker Mosquitto !")
+        # On s'abonne au pattern global 'aeroguard/#' pour écouter co2, temp, et hum en même temps
+        client.subscribe("aeroguard/#")
+    else:
+        print(f"❌ Échec de connexion à Mosquitto, code erreur : {rc}")
+
+def on_message(client, userdata, msg):
+    """ Cette fonction s'exécute automatiquement dès que l'ESP32 publie une donnée """
+    global current_co2, current_temp, current_hum, call_counter
+    
+    try:
+        # Décoder la valeur brute reçue (qui arrive sous forme de texte)
+        payload = msg.payload.decode("utf-8")
+        topic = msg.topic
+
+        # Dispatcher les données réelles selon le canal (Topic) d'origine
+        if topic == "aeroguard/co2":
+            current_co2 = int(payload)
+        elif topic == "aeroguard/temp":
+            current_temp = float(payload)
+        elif topic == "aeroguard/hum":
+            current_hum = float(payload)
+
+        # Journalisation dans le terminal Python pour débugger
+        print(f"📥 [MQTT] Réception sur {topic} -> {payload}")
+
+        # --- SAUVEGARDE AUTOMATIQUE EN BASE DE DONNÉES ---
+        # Comme l'ESP32 envoie 3 messages successifs (co2, temp, hum), 
+        # on attend de recevoir les 3 (compteur à 3) pour faire une seule ligne propre en DB.
+        if topic in ["aeroguard/co2", "aeroguard/temp", "aeroguard/hum"]:
+            call_counter += 1
+            if call_counter >= 3:
+                # Calculer le score IAQ basé sur les vraies valeurs actuelles
+                iaq = calculate_iaq_index(current_co2, current_temp, current_hum)
+                save_to_db(current_co2, current_temp, current_hum, int(iaq["score_global"]))
+                call_counter = 0
+                print("💾 [DB] Enregistrement des données réelles effectué.")
+
+    except Exception as e:
+        print(f"❌ Erreur lors du traitement du message MQTT : {e}")
+
+def start_mqtt_client():
+    """ Fonction pour initialiser le client MQTT et le lancer dans un thread """
+    mqtt_client = mqtt.Client()
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
+    
+    try:
+        # Connexion au Mosquitto qui tourne sur ton PC en local (localhost)
+        mqtt_client.connect("localhost", 1883, 60)
+        # Démarre la boucle d'écoute en arrière-plan
+        mqtt_client.loop_forever()
+    except Exception as e:
+        print(f"❌ Impossible de se connecter au Broker Mosquitto local : {e}")
+
+# Lancement immédiat de Mosquitto dans un fil (thread) séparé de FastAPI
+mqtt_thread = threading.Thread(target=start_mqtt_client, daemon=True)
+mqtt_thread.start()
+
 @app.get("/")
 def read_root():
     return {"status": "AeroGuard Backend is running"}
@@ -33,9 +101,7 @@ def read_root():
 @app.get("/api/sensor-test")
 def get_sensor_test():
     global call_counter
-    current_co2 = random.randint(300, 700) 
-    current_temp = random.randint(18, 26)
-    current_hum = random.randint(30, 60)
+    global  current_co2, current_temp, current_hum
     
     prediction = calculate_co2_trend(current_co2)
 
@@ -57,11 +123,11 @@ def get_sensor_test():
 def get_history():
     try:
         conn = sqlite3.connect("aeroguard.db")
-        # On utilise Row pour pouvoir accéder aux colonnes par leur nom
-        conn.row_factory = sqlite3.Row 
+        # Zugriff auf die Datenbank
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
-        # On récupère les 12 dernières mesures, triées par ID descendant
+        # Abholung der letzten 12 Messungen (ca. 1 Stunde Historie bei 5-Minuten-Intervallen)
         cursor.execute('''
             SELECT timestamp, co2, temperature, humidity, iaq_score 
             FROM measurements 
@@ -73,8 +139,7 @@ def get_history():
 
         history = []
         for row in rows:
-            # On formate l'heure pour qu'elle soit jolie sur le graphique (HH:MM:SS)
-            # row['timestamp'] ressemble à "2023-10-27 14:05:01"
+            # Uhrzeitformat (HH:MM:SS)
             full_time = row['timestamp'].split(" ")[1] 
             
             history.append({

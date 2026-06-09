@@ -3,9 +3,9 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
-const char* ssid = "WLAN-Name";   
-const char* password = "WLAN-Passwort"; 
-const char* mqtt_server = "100.81.219.149";   
+const char* ssid = "Vodafone-1B54";   
+const char* password = "EY36k2chKFRsnyry"; 
+const char* mqtt_server = "192.168.0.94";   
 const int mqtt_port = 1883;   
 
 SensirionI2CScd4x scd41;
@@ -54,6 +54,8 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) { delay(100); }
   
+  setup_wifi();
+  
   client.setServer(mqtt_server, mqtt_port);
 
   Wire.begin(21, 22); // SDA = 21, SCL = 22 auf ESP32
@@ -95,8 +97,8 @@ void loop() {
         Serial.print("Hum: "); Serial.print(hum, 1); Serial.println(" %");
 
         String co2Str = String(co2);
-        String tempStr = String(temperature, 1);
-        String humStr = String(humidity, 1);
+        String tempStr = String(temp, 1);
+        String humStr = String(hum, 1);
 
         client.publish("aeroguard/co2", co2Str.c_str());
         client.publish("aeroguard/temp", tempStr.c_str());
