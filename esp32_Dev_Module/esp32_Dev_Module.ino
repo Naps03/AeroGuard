@@ -10,9 +10,9 @@ const char* password = "EY36k2chKFRsnyry";
 const char* mqtt_server = "192.168.0.94";   
 const int mqtt_port = 1883;  
 
-const int ledVerte = 13;
-const int ledJaune = 12;
-const int ledRouge = 14;
+const int ledGrün = 13;
+const int ledGelb = 12;
+const int ledRot = 14;
 
 SensirionI2CScd4x scd41;
 WiFiClient espClient; 
@@ -22,7 +22,7 @@ ld2410 radar;
 unsigned long lastMsg = 0;
 unsigned long lastPresenceTime = 0;
 bool systemActive = false;            
-const unsigned long TIMEOUT_VEILLE = 60000; //Wartezeit bis das System augeht, wenn niemand mehr im Raum ist
+const unsigned long TIMEOUT_SPARMODUS = 60000; //Wartezeit bis das System augeht, wenn niemand mehr im Raum ist
 
 void setup_wifi() {
   delay(10);
@@ -63,9 +63,9 @@ void reconnect() {
 void setup() {
   Serial.begin(115200);
 
-  pinMode(ledVerte, OUTPUT);
-  pinMode(ledJaune, OUTPUT);
-  pinMode(ledRouge, OUTPUT);
+  pinMode(ledGrün, OUTPUT);
+  pinMode(ledGelb, OUTPUT);
+  pinMode(ledRot, OUTPUT);
   
   Serial2.begin(256000, SERIAL_8N1, 32, 27); 
     Serial.print("Initialisierung des LD2410C... ");
@@ -113,10 +113,10 @@ void loop() {
       client.publish("aeroguard/presence", "1");
     }
   } else {
-    if (systemActive && (now - lastPresenceTime > TIMEOUT_VEILLE)) {
+    if (systemActive && (now - lastPresenceTime > TIMEOUT_SPARMODUS)) {
       systemActive = false;
       Serial.println("Leerer Raum seit 60s. Aktivierung des Sparmodus");
-      eteindreToutesLesLEDs();
+      offLEDs();
       client.publish("aeroguard/presence", "0");
     }
   }
@@ -138,7 +138,7 @@ void loop() {
           Serial.print("Temp: "); Serial.print(temp, 1); Serial.print(" °C\t");
           Serial.print("Hum: "); Serial.print(hum, 1); Serial.println(" %");
 
-          gererLEDs(co2);
+          steuernLEDs(co2);
 
           String co2Str = String(co2);
           String tempStr = String(temp, 1);
@@ -159,29 +159,26 @@ void loop() {
     delay(500); 
 }
 
-void gererLEDs(uint16_t valeurCO2) {
-  if (valeurCO2 < 800) {
-    // Air Sain -> Vert uniquement
-    digitalWrite(ledVerte, HIGH);
-    digitalWrite(ledJaune, LOW);
-    digitalWrite(ledRouge, LOW);
+void steuernLEDs(uint16_t wertCO2) {
+  if (wertCO2 < 800) {
+    digitalWrite(ledGrün, HIGH);
+    digitalWrite(ledGelb, LOW);
+    digitalWrite(ledRot, LOW);
   } 
-  else if (valeurCO2 >= 800 && valeurCO2 <= 1200) {
-    // Attention -> Jaune uniquement
-    digitalWrite(ledVerte, LOW);
-    digitalWrite(ledJaune, HIGH);
-    digitalWrite(ledRouge, LOW);
+  else if (wertCO2 >= 800 && wertCO2 <= 1200) {
+    digitalWrite(ledGrün, LOW);
+    digitalWrite(ledGelb, HIGH);
+    digitalWrite(ledRot, LOW);
   } 
   else {
-    // Alerte Ventilation -> Rouge uniquement
-    digitalWrite(ledVerte, LOW);
-    digitalWrite(ledJaune, LOW);
-    digitalWrite(ledRouge, HIGH);
+    digitalWrite(ledGrün, LOW);
+    digitalWrite(ledGelb, LOW);
+    digitalWrite(ledRot, HIGH);
   }
 }
 
-void eteindreToutesLesLEDs() {
-  digitalWrite(ledVerte, LOW);
-  digitalWrite(ledJaune, LOW);
-  digitalWrite(ledRouge, LOW);
+void offLEDs() {
+  digitalWrite(ledGrün, LOW);
+  digitalWrite(ledGelb, LOW);
+  digitalWrite(ledRot, LOW);
 }
