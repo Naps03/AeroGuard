@@ -2,15 +2,17 @@ import math
 
 def get_co2_score(co2):
     #Score der CO2-Konzentration
-    if co2 <= 800:
+    if co2 < 1000:
         return 100
-    elif 800 < co2 <= 1000:
-        return 100 - ((co2 - 800) / 200) * 20
+    elif 1000 <= co2 <= 1500:
+        return 50 - ((co2 - 1000) / 500) * 20
     elif 1000 < co2 <= 2000:
         return 80 - ((co2 - 1000) / 1000) * 60
-    elif 2000 < co2 <= 3000:
-        return 20 - ((co2 - 2000) / 1000) * 20
-    else: # CO2 > 3000
+    elif 1500 < co2 <= 2000:
+        return 30 - ((co2 - 1500) / 500) * 20
+    elif 2000 < co2 <= 5000:
+        return 10 - ((co2 - 2000) / 3000) * 5
+    else:
         return 0
 
 def get_humidity_score(hr):

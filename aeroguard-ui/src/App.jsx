@@ -92,7 +92,7 @@ function App() {
   }
 };
 
-  const isAlert = sensorData.co2 > 1000;
+  const isAlert = sensorData.co2 > 2000;
   const predictionMinutes = 25; 
 
   return (

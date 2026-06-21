@@ -160,12 +160,12 @@ void loop() {
 }
 
 void steuernLEDs(uint16_t wertCO2) {
-  if (wertCO2 < 800) {
+  if (wertCO2 <= 1000) {
     digitalWrite(ledGrün, HIGH);
     digitalWrite(ledGelb, LOW);
     digitalWrite(ledRot, LOW);
   } 
-  else if (wertCO2 >= 800 && wertCO2 <= 1200) {
+  else if (wertCO2 > 1000 && wertCO2 <= 2000) {
     digitalWrite(ledGrün, LOW);
     digitalWrite(ledGelb, HIGH);
     digitalWrite(ledRot, LOW);

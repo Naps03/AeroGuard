@@ -36,7 +36,6 @@ def on_connect(client, userdata, flags, rc):
     """ Cette fonction se déclenche dès que le backend se connecte à Mosquitto """
     if rc == 0:
         print("✅ Backend connecté avec succès au Broker Mosquitto !")
-        # On s'abonne au pattern global 'aeroguard/#' pour écouter co2, temp, et hum en même temps
         client.subscribe("aeroguard/#")
     else:
         print(f"❌ Échec de connexion à Mosquitto, code erreur : {rc}")
@@ -46,11 +45,10 @@ def on_message(client, userdata, msg):
     global current_co2, current_temp, current_hum, call_counter
     
     try:
-        # Décoder la valeur brute reçue (qui arrive sous forme de texte)
+        # Message Decoding
         payload = msg.payload.decode("utf-8")
         topic = msg.topic
 
-        # Dispatcher les données réelles selon le canal (Topic) d'origine
         if topic == "aeroguard/co2":
             current_co2 = int(payload)
         elif topic == "aeroguard/temp":
@@ -58,16 +56,12 @@ def on_message(client, userdata, msg):
         elif topic == "aeroguard/hum":
             current_hum = float(payload)
 
-        # Journalisation dans le terminal Python pour débugger
         print(f"📥 [MQTT] Réception sur {topic} -> {payload}")
 
-        # --- SAUVEGARDE AUTOMATIQUE EN BASE DE DONNÉES ---
-        # Comme l'ESP32 envoie 3 messages successifs (co2, temp, hum), 
-        # on attend de recevoir les 3 (compteur à 3) pour faire une seule ligne propre en DB.
+        # Speichern der Sensordaten in die Datenbank
         if topic in ["aeroguard/co2", "aeroguard/temp", "aeroguard/hum"]:
             call_counter += 1
             if call_counter >= 3:
-                # Calculer le score IAQ basé sur les vraies valeurs actuelles
                 iaq = calculate_iaq_index(current_co2, current_temp, current_hum)
                 save_to_db(current_co2, current_temp, current_hum, int(iaq["score_global"]))
                 call_counter = 0
@@ -83,14 +77,12 @@ def start_mqtt_client():
     mqtt_client.on_message = on_message
     
     try:
-        # Connexion au Mosquitto qui tourne sur ton PC en local (localhost)
         mqtt_client.connect("localhost", 1883, 60)
-        # Démarre la boucle d'écoute en arrière-plan
         mqtt_client.loop_forever()
     except Exception as e:
         print(f"❌ Impossible de se connecter au Broker Mosquitto local : {e}")
 
-# Lancement immédiat de Mosquitto dans un fil (thread) séparé de FastAPI
+# Starten der Mosquitto-Verbindung
 mqtt_thread = threading.Thread(target=start_mqtt_client, daemon=True)
 mqtt_thread.start()
 
@@ -150,7 +142,6 @@ def get_history():
                 "iaq": row['iaq_score']
             })
 
-        # On inverse la liste pour que le point le plus récent soit à droite du graphique
         return history[::-1]
 
     except Exception as e:
@@ -257,7 +248,7 @@ def calculate_co2_trend(current_co2):
     
     pente = co2_diff / time_diff 
     
-    remaining_ppm = 1000 - current_co2
+    remaining_ppm = 2000 - current_co2
     if remaining_ppm <= 0:
         return 0
         
