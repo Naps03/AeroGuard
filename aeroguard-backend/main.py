@@ -33,15 +33,13 @@ app.add_middleware(
 )
 
 def on_connect(client, userdata, flags, rc):
-    """ Cette fonction se déclenche dès que le backend se connecte à Mosquitto """
     if rc == 0:
-        print("✅ Backend connecté avec succès au Broker Mosquitto !")
+        print("✅ Backend verbunden mit Mosuqitto Broker!")
         client.subscribe("aeroguard/#")
     else:
-        print(f"❌ Échec de connexion à Mosquitto, code erreur : {rc}")
+        print(f"Verbindung mit MQTT fehlgeschlagen, errorcode : {rc}")
 
 def on_message(client, userdata, msg):
-    """ Cette fonction s'exécute automatiquement dès que l'ESP32 publie une donnée """
     global current_co2, current_temp, current_hum, call_counter
     
     try:
@@ -56,7 +54,7 @@ def on_message(client, userdata, msg):
         elif topic == "aeroguard/hum":
             current_hum = float(payload)
 
-        print(f"📥 [MQTT] Réception sur {topic} -> {payload}")
+        print(f"📥 [MQTT] Empfang auf {topic} -> {payload}")
 
         # Speichern der Sensordaten in die Datenbank
         if topic in ["aeroguard/co2", "aeroguard/temp", "aeroguard/hum"]:
@@ -65,13 +63,12 @@ def on_message(client, userdata, msg):
                 iaq = calculate_iaq_index(current_co2, current_temp, current_hum)
                 save_to_db(current_co2, current_temp, current_hum, int(iaq["score_global"]))
                 call_counter = 0
-                print("💾 [DB] Enregistrement des données réelles effectué.")
+                print("DB Speicherung erfolgreich.")
 
     except Exception as e:
-        print(f"❌ Erreur lors du traitement du message MQTT : {e}")
+        print(f"Fehler bei Behandlung der Nachricht: {e}")
 
 def start_mqtt_client():
-    """ Fonction pour initialiser le client MQTT et le lancer dans un thread """
     mqtt_client = mqtt.Client()
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
@@ -80,7 +77,7 @@ def start_mqtt_client():
         mqtt_client.connect("localhost", 1883, 60)
         mqtt_client.loop_forever()
     except Exception as e:
-        print(f"❌ Impossible de se connecter au Broker Mosquitto local : {e}")
+        print(f"Verbindung mit Mosquitto Broker unmöglich : {e}")
 
 # Starten der Mosquitto-Verbindung
 mqtt_thread = threading.Thread(target=start_mqtt_client, daemon=True)
@@ -145,7 +142,7 @@ def get_history():
         return history[::-1]
 
     except Exception as e:
-        print(f"❌ Erreur lecture historique: {e}")
+        print(f"Lesefehler: {e}")
         return []
 
 # Initialiserung der Datenbank
