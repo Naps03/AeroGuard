@@ -33,14 +33,14 @@ function App() {
       // 2. Belegungsdaten
       const resOcc = await fetch('http://127.0.0.1:8000/api/occupations');
       const dataO = await resOcc.json();
-      console.log("Données reçues de la DB:", dataO);
+      console.log("Empfangene Daten vom DB:", dataO);
       setOccupations(dataO); 
 
       const resHistory = await fetch('http://127.0.0.1:8000/api/history');
       const dataH = await resHistory.json();
       setHistoryData(dataH);
     } catch (error) {
-      console.error("Erreur de fetch:", error);
+      console.error("Fehler bei Fetch:", error);
     }
   };
 
@@ -71,7 +71,7 @@ function App() {
         setNewStart(""); setNewEnd(""); setNewLabel("");
       }
     } catch (error) {
-      console.error("Erreur lors de l'enregistrement:", error);
+      console.error("Fehler beim Speichern:", error);
     }
   }
 };
@@ -85,10 +85,10 @@ function App() {
     if (response.ok) {
       setOccupations(occupations.filter(o => o.id !== id));
     } else {
-      console.error("Erreur lors de la suppression sur le serveur");
+      console.error("Fehler beim Löschen der Belegung mit ID:", id);
     }
   } catch (error) {
-    console.error("Erreur réseau :", error);
+    console.error("Netzwerkfehler:", error);
   }
 };
 
